@@ -1,1 +1,129 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <unistd.h>
+
+#define MEMORY_BLOCK_SIZE 1024    // Simulated memory block size
+
+// Structure to represent a memory request
+typedef struct {
+    int request_id;       // Unique ID of the request
+    int start_address;    // Start address of the memory block to be accessed
+    int end_address;      // End address of the memory block to be accessed
+} MemoryRequest;
+
+// Simulated memory
+char memory[MEMORY_BLOCK_SIZE];
+
+// Mutex for controlling access to memory (for thread synchronization)
+pthread_mutex_t memory_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Function to simulate memory access by each thread
+void *memory_access(void *arg) {
+    // Cast argument to MemoryRequest type
+    MemoryRequest *request = (MemoryRequest *)arg;
+
+    // Lock the memory to prevent race conditions
+    pthread_mutex_lock(&memory_mutex);
+
+    // Explain the memory access action for the current thread
+    printf("Thread %d: Requesting access to memory block from address %d to %d...\n",
+           request->request_id, request->start_address, request->end_address);
+
+    // Simulate memory access by writing data
+    for (int i = request->start_address; i <= request->end_address; i++) {
+        memory[i] = request->request_id;  // Simulate writing to the memory block
+    }
+
+    // Inform that the memory access is complete
+    printf("Thread %d: Memory access from address %d to %d completed successfully.\n",
+           request->request_id, request->start_address, request->end_address);
+
+    // Unlock the memory after access is done
+    pthread_mutex_unlock(&memory_mutex);
+
+    // Simulate a small delay to represent memory latency
+    usleep(1000);  // Sleep for 1 millisecond (simulating memory access time)
+    pthread_exit(NULL);
+}
+
+// Function to schedule memory requests optimally
+void schedule_memory_requests(MemoryRequest *requests, int num_requests) {
+    pthread_t threads[num_requests];
+
+    // Create and schedule memory access requests using multiple threads
+    for (int i = 0; i < num_requests; i++) {
+        // Inform about the thread creation for memory request
+        printf("Scheduling memory request %d...\n", requests[i].request_id);
+
+        // Create threads for each memory request
+        pthread_create(&threads[i], NULL, memory_access, (void *)&requests[i]);
+    }
+
+    // Join threads to ensure all memory requests finish
+    for (int i = 0; i < num_requests; i++) {
+        pthread_join(threads[i], NULL);
+        printf("Thread %d: Memory access completed and joined back to main process.\n",
+               requests[i].request_id);
+    }
+
+    // Inform that all memory accesses have been completed
+    printf("All memory requests have been successfully completed.\n");
+}
+
+int main() {
+    int num_threads;
+
+    // Explain the program's purpose to the user
+    printf("Memory Access Scheduler Simulation Started...\n");
+    printf("You will define memory access ranges for each thread.\n\n");
+
+    // Get the number of threads from the user
+    printf("Enter the number of threads (maximum %d): ", MEMORY_BLOCK_SIZE);
+    scanf("%d", &num_threads);
+
+    // Validate the number of threads
+    while (num_threads <= 0 || num_threads > MEMORY_BLOCK_SIZE) {
+        printf("Invalid number of threads. Please enter a value between 1 and %d: ", MEMORY_BLOCK_SIZE);
+        scanf("%d", &num_threads);
+    }
+
+    // Dynamically allocate memory for requests based on the number of threads
+    MemoryRequest *requests = (MemoryRequest *)malloc(num_threads * sizeof(MemoryRequest));
+
+    // Get user input for memory request ranges for each thread
+    for (int i = 0; i < num_threads; i++) {
+        requests[i].request_id = i; // Assign the thread ID
+
+        // Get the start and end address from the user
+        printf("Enter the start address for Thread %d (0-%d): ", i, MEMORY_BLOCK_SIZE - 1);
+        scanf("%d", &requests[i].start_address);
+
+        // Validate start address input
+        while (requests[i].start_address < 0 || requests[i].start_address >= MEMORY_BLOCK_SIZE) {
+            printf("Invalid start address. Please enter a value between 0 and %d: ", MEMORY_BLOCK_SIZE - 1);
+            scanf("%d", &requests[i].start_address);
+        }
+
+        printf("Enter the end address for Thread %d (%d-%d): ", i, requests[i].start_address, MEMORY_BLOCK_SIZE - 1);
+        scanf("%d", &requests[i].end_address);
+
+        // Validate end address input
+        while (requests[i].end_address < requests[i].start_address || requests[i].end_address >= MEMORY_BLOCK_SIZE) {
+            printf("Invalid end address. Please enter a value between %d and %d: ", requests[i].start_address, MEMORY_BLOCK_SIZE - 1);
+            scanf("%d", &requests[i].end_address);
+        }
+    }
+
+    // Schedule the memory requests for optimal bandwidth utilization
+    schedule_memory_requests(requests, num_threads);
+
+    // Free dynamically allocated memory
+    free(requests);
+
+    // Simulation complete
+    printf("\nMemory access simulation complete. All threads have finished their work.\n");
+
+    return 0;
+}
 
